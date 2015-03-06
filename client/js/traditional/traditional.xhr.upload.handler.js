@@ -131,7 +131,10 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
 
         setParamsAndGetEntityToSend = function(params, xhr, fileOrBlob, id) {
             var formData = new FormData(),
-                method = spec.demoMode ? "GET" : "POST",
+                // BEHANCE: Allowing the method to be changed in application code
+                // Waiting for the proper fix in https://github.com/FineUploader/fine-uploader/issues/734
+                // Usage: uploader._paramsStore.method = 'PATCH';
+                method = spec.paramsStore.method || (spec.demoMode ? "GET" : "POST"),
                 endpoint = spec.endpointStore.get(id),
                 name = getName(id),
                 size = getSize(id);
