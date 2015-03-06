@@ -75,7 +75,11 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
         },
 
         isErrorUploadResponse = function(xhr, response) {
-            return xhr.status !== 200 || !response.success || response.reset;
+            // BEHANCE: Changed to response.success === false to bypass requiring the backend
+            // to supply a success attribute in the response
+            // BEHANCE: An empty response with a status of 200 should still be an error
+            // BEHANCE: Any 200-range http code should not be an error
+            return xhr.status < 200 || xhr.status > 299 || response.success === false || !Object.keys(response).length || response.reset;
         },
 
         onUploadOrChunkComplete = function(id, xhr) {
