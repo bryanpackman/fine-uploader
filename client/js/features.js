@@ -1,5 +1,5 @@
 /* globals qq */
-qq.supportedFeatures = (function () {
+qq.supportedFeatures = (function() {
     "use strict";
 
     var supportsUploading,
@@ -16,7 +16,6 @@ qq.supportedFeatures = (function () {
         supportsFolderSelection,
         supportsImagePreviews,
         supportsUploadProgress;
-
 
     function testSupportsFileInputElement() {
         var supported = true,
@@ -82,7 +81,7 @@ qq.supportedFeatures = (function () {
         return document.createElement("input").webkitdirectory !== undefined;
     }
 
-    function isLocalStorageSupported () {
+    function isLocalStorageSupported() {
         try {
             return !!window.localStorage;
         }
@@ -91,7 +90,6 @@ qq.supportedFeatures = (function () {
             return false;
         }
     }
-
 
     supportsUploading = testSupportsFileInputElement();
 
@@ -125,7 +123,6 @@ qq.supportedFeatures = (function () {
         }
         return false;
     }());
-
 
     return {
         ajaxUploading: supportsAjaxFileUploading,

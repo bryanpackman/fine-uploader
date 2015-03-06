@@ -22,6 +22,7 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
             serverSideEncryption: false,
             maxConnections: 3,
             getContentType: function(id) {},
+            getBucket: function(id) {},
             getKey: function(id) {},
             getName: function(id) {},
             log: function(str, level) {}
@@ -36,7 +37,6 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
         log: options.log
     });
 
-
     /**
      * Determine all headers for the "Initiate MPU" request, including the "Authorization" header, which must be determined
      * by the local server.  This is a promissory function.  If the server responds with a signature, the headers
@@ -47,7 +47,7 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
      * @returns {qq.Promise}
      */
     function getHeaders(id) {
-        var bucket = qq.s3.util.getBucket(options.endpointStore.get(id)),
+        var bucket = options.getBucket(id),
             headers = {},
             promise = new qq.Promise(),
             key = options.getKey(id),
@@ -129,7 +129,7 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
                 options.log(qq.format("Unexplained error with initiate multipart upload request for {}.  Status code {}.", id, status), "error");
             }
 
-            promise.failure("Problem initiating upload request with Amazon.", xhr);
+            promise.failure("Problem initiating upload request.", xhr);
         }
         else {
             options.log(qq.format("Initiate multipart upload request successful for {}.  Upload ID is {}", id, uploadId));
@@ -149,7 +149,6 @@ qq.s3.InitiateMultipartAjaxRequester = function(o) {
             POST: [200]
         }
     }));
-
 
     qq.extend(this, {
         /**

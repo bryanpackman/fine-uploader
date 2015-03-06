@@ -36,7 +36,6 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
             }
         },
 
-
         allChunksDoneRequester = new qq.traditional.AllChunksDoneAjaxRequester({
             cors: spec.cors,
             endpoint: spec.chunking.success.endpoint,
@@ -76,7 +75,11 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
         },
 
         isErrorUploadResponse = function(xhr, response) {
-            return xhr.status !== 200 || !response.success || response.reset;
+            // BEHANCE: Changed to response.success === false to bypass requiring the backend
+            // to supply a success attribute in the response
+            // BEHANCE: An empty response with a status of 200 should still be an error
+            // BEHANCE: Any 200-range http code should not be an error
+            return xhr.status < 200 || xhr.status > 299 || response.success === false || !Object.keys(response).length || response.reset;
         },
 
         onUploadOrChunkComplete = function(id, xhr) {
@@ -101,7 +104,7 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
                 log(qq.format("Received response status {} with body: {}", xhr.status, xhr.responseText));
                 response = qq.parseJson(xhr.responseText);
             }
-            catch(error) {
+            catch (error) {
                 upload && log("Error when attempting to parse xhr response text (" + error.message + ")", "error");
             }
 
@@ -128,7 +131,10 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
 
         setParamsAndGetEntityToSend = function(params, xhr, fileOrBlob, id) {
             var formData = new FormData(),
-                method = spec.demoMode ? "GET" : "POST",
+                // BEHANCE: Allowing the method to be changed in application code
+                // Waiting for the proper fix in https://github.com/FineUploader/fine-uploader/issues/734
+                // Usage: uploader._paramsStore.method = 'PATCH';
+                method = spec.paramsStore.method || (spec.demoMode ? "GET" : "POST"),
                 endpoint = spec.endpointStore.get(id),
                 name = getName(id),
                 size = getSize(id);
@@ -185,7 +191,6 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
             });
         };
 
-
     qq.extend(this, {
         uploadChunk: function(id, chunkIdx, resuming) {
             var chunkData = handler._getChunkData(id, chunkIdx),
@@ -226,10 +231,9 @@ qq.traditional.XhrUploadHandler = function(spec, proxy) {
     });
 
     qq.extend(this, new qq.XhrUploadHandler({
-            options: qq.extend({namespace: "traditional"}, spec),
-            proxy: qq.extend({getEndpoint: spec.endpointStore.get}, proxy)
-        }
-    ));
+        options: qq.extend({namespace: "traditional"}, spec),
+        proxy: qq.extend({getEndpoint: spec.endpointStore.get}, proxy)
+    }));
 
     qq.override(this, function(super_) {
         return {

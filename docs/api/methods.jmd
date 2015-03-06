@@ -30,41 +30,31 @@ $(document).ready(function() {
 {% markdown %}
 ## Core
 {% endmarkdown %}
-{{ api_method("addFiles", "addFiles (files[, params[, endpoint]])", "Submit one or more File objects to the uploader",
+{{ api_method("addFiles", "addFiles (files[, params[, endpoint]])", "Submit one or more files to the uploader.
+
+A `BlobWrapper` object:
+
+| Property | Description |
+| -------- | :---------- |
+| blob     | the bytes of the `Blob` object being uploaded
+| name     | the name of the `Blob` | {: .table }
+
+<br/>
+A `CanvasWrapper` object:
+
+| Property | Description |
+| -------- | :---------- |
+| canvas   | the `<canvas>` to be converted to a file & then uploaded
+| name     | the name to assign to the created file |
+| quality  | 1-100 value indicating the desired quality of the converted file (only for image/jpeg)
+| type     | MIME type of the file to create from this `<canvas>` | {: .table }
+",
 [
         {
             "name": "files",
             "type": "Array",
-            "description": "An array of `File`s or `<input>` `HTMLElements`"
+            "description": "An array of `File`s, `<input>`s, `FileList`s, `Blob`s, `BlobWrapper` objects, `<canvas>`es, or `CanvasWrapper` objects"
         },
-    {
-        "name": "params",
-        "type": "Object",
-        "description": "A set of parameters to send with the file to be added"
-    },
-    {
-        "name": "endpoint",
-        "type": "String",
-        "description": "The endpoint to send this file to"
-    }
-]) }}
-
-{{ api_method("addBlobs", "addBlobs (blobs[, params[, endpoint]])", "Submit one or more Blob objects to the uploader.
-
-A `BlobData` object:
-
-| Property | Description |
-| -------- | :---------- |
-| name     | the name of the `Blob` |
-| blob     | the bytes of the `Blob` object being uploaded | {: .table }
-
-",
-[
-    {
-        "name": "blobs",
-        "type": "Array",
-        "description": "An array of `Blob` or `BlobData` objects."
-    },
     {
         "name": "params",
         "type": "Object",
@@ -175,6 +165,15 @@ A `BlobData` object:
         "description": "A `File` or `Blob` object."
     }
 
+]) }}
+
+{{ api_method("getEndpoint", "getEndpoint ([id])", "Returns the endpoint associated with a particular file, or the current catch-all endpoint for all files (if no ID is specified).",
+[
+    {
+        "name": "id",
+        "type": "Integer",
+        "description": "The ID of the associated file."
+    }
 ]) }}
 
 {{ api_method("getInProgress", "getInProgress ()", "Returns the number of items that are either currently uploading or waiting for an available connection (`qq.status.QUEUED`). If called inside of a `cancel` event handler, then this method will return a value that includes the upload associated with the `cancel` event handler. This is because the upload will not be canceled until the event handler returns.", none, [
@@ -429,6 +428,16 @@ A `BlobData` object:
         "name": "id",
         "type": "Integer",
         "description": "The file id."
+    }
+
+], null) }}
+
+{{ api_method("setItemLimit", "setItemLimit (newItemLimit)", "Change the `validation.itemLimit` option set during construction/initialization.",
+[
+    {
+        "name": "newItemLimit",
+        "type": "Integer",
+        "description": "The new file count limit."
     }
 
 ], null) }}

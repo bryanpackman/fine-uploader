@@ -50,17 +50,16 @@ qq.Scaler = function(spec, log) {
                             refType: originalBlob.type
                         }),
                         blob: new qq.BlobProxy(originalBlob,
-                            qq.bind(self._generateScaledImage, self, {
-                                maxSize: sizeRecord.maxSize,
-                                orient: orient,
-                                type: outputType,
-                                quality: defaultQuality,
-                                failedText: failedToScaleText,
-                                includeExif: includeExif,
-                                log: log
-                            }))
-                        }
-                    );
+                        qq.bind(self._generateScaledImage, self, {
+                            maxSize: sizeRecord.maxSize,
+                            orient: orient,
+                            type: outputType,
+                            quality: defaultQuality,
+                            failedText: failedToScaleText,
+                            includeExif: includeExif,
+                            log: log
+                        }))
+                    });
                 });
 
                 includeReference && records.push({
@@ -305,7 +304,7 @@ qq.extend(qq.Scaler.prototype, {
             var scaledImageDataUri = canvas.toDataURL(type, quality),
                 signalSuccess = function() {
                     log("Success generating scaled version for " + sourceFile.name);
-                    var blob = self._dataUriToBlob(scaledImageDataUri);
+                    var blob = qq.dataUriToBlob(scaledImageDataUri);
                     scalingEffort.success(blob);
                 };
 
@@ -352,7 +351,6 @@ qq.extend(qq.Scaler.prototype, {
 
         return insertionEffort;
     },
-
 
     _dataUriToBlob: function(dataUri) {
         "use strict";

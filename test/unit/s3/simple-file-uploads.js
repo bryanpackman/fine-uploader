@@ -21,7 +21,7 @@ if (qqtest.canDownloadFileAsBlob) {
                         conditions = {};
 
                     fileTestHelper.mockXhr();
-                    uploader.addBlobs({name: "test.jpg", blob: blob});
+                    uploader.addFiles({name: "test.jpg", blob: blob});
 
                     setTimeout(function() {
                         assert.equal(fileTestHelper.getRequests().length, 2, "Wrong # of requests");
@@ -230,7 +230,7 @@ if (qqtest.canDownloadFileAsBlob) {
                 );
 
                 qqtest.downloadFileAsBlob("up.jpg", "image/jpeg").then(function (blob) {
-                    uploader.addBlobs({name: "test.jpg", blob: blob});
+                    uploader.addFiles({name: "test.jpg", blob: blob});
 
                     assert.equal(fileTestHelper.getRequests().length, 0, "Wrong # of requests");
 
@@ -274,7 +274,7 @@ if (qqtest.canDownloadFileAsBlob) {
                 );
 
                 qqtest.downloadFileAsBlob("up.jpg", "image/jpeg").then(function (blob) {
-                    uploader.addBlobs({name: "test.jpg", blob: blob});
+                    uploader.addFiles({name: "test.jpg", blob: blob});
 
                     assert.equal(fileTestHelper.getRequests().length, 0, "Wrong # of requests");
                 });
@@ -407,7 +407,7 @@ if (qqtest.canDownloadFileAsBlob) {
             });
         });
 
-        it("sends uploadSuccess request after upload succeeds", function(done) {
+        it("Sends uploadSuccess request after upload succeeds.  Also respects call to setUploadSuccessEndpoint method.", function(done) {
             var uploadSuccessUrl = "/upload/success",
                 uploadSuccessParams = {"test-param-name": "test-param-value"},
                 uploadSuccessHeaders = {"test-header-name": "test-header-value"},
@@ -415,12 +415,15 @@ if (qqtest.canDownloadFileAsBlob) {
                     request:typicalRequestOption,
                     signature: typicalSignatureOption,
                     uploadSuccess: {
-                        endpoint: uploadSuccessUrl,
+                        endpoint: "foo/bar",
                         params: uploadSuccessParams,
                         customHeaders: uploadSuccessHeaders
                     }
                 }
             );
+
+            uploader.setUploadSuccessEndpoint(uploadSuccessUrl);
+            uploader.setParams({foo: "bar"});
 
             startTypicalTest(uploader, function(signatureRequest, policyDoc, uploadRequest) {
                 var uploadSuccessRequest, uploadSuccessRequestParsedBody;
@@ -436,6 +439,7 @@ if (qqtest.canDownloadFileAsBlob) {
                 assert.equal(uploadSuccessRequest.requestHeaders["Content-Type"].indexOf("application/x-www-form-urlencoded"), 0);
                 assert.equal(uploadSuccessRequest.requestHeaders["test-header-name"], uploadSuccessHeaders["test-header-name"]);
                 assert.equal(uploadSuccessRequestParsedBody["test-param-name"], uploadSuccessParams["test-param-name"]);
+                assert.equal(uploadSuccessRequestParsedBody.foo, "bar");
                 assert.equal(uploadSuccessRequestParsedBody.key, uploader.getKey(0));
                 assert.equal(uploadSuccessRequestParsedBody.uuid, uploader.getUuid(0));
                 assert.equal(uploadSuccessRequestParsedBody.name, uploader.getName(0));
@@ -449,8 +453,8 @@ if (qqtest.canDownloadFileAsBlob) {
             });
         });
 
-        it("declares an upload as a failure if uploadSuccess response indicates a problem with the file", function(done) {
-            assert.expect(2, done);
+        it("Declares an upload as a failure if uploadSuccess response indicates a problem with the file.  Also tests uploadSuccessRequest endpoint option.", function(done) {
+            assert.expect(3, done);
 
             var uploadSuccessUrl = "/upload/success",
                 uploader = new qq.s3.FineUploaderBasic({
@@ -469,6 +473,7 @@ if (qqtest.canDownloadFileAsBlob) {
                 uploadRequest.respond(200, null, null);
 
                 uploadSuccessRequest = fileTestHelper.getRequests()[2];
+                assert.equal(uploadSuccessRequest.url, uploadSuccessUrl);
                 uploadSuccessRequest.respond(200, null, JSON.stringify({success: false}));
                 assert.equal(uploader.getUploads()[0].status, qq.status.UPLOAD_FAILED);
             });

@@ -36,7 +36,7 @@ qq.ImageGenerator = function(log) {
 
         extension = extension && extension.toLowerCase();
 
-        switch(extension) {
+        switch (extension) {
             case "jpeg":
             case "jpg":
                 return "image/jpeg";
@@ -205,20 +205,28 @@ qq.ImageGenerator = function(log) {
 
         tempImg.src = url;
 
-        tempImgRender.then(function() {
-            registerThumbnailRenderedListener(canvasOrImg, draw);
+        tempImgRender.then(
+            function rendered() {
+                registerThumbnailRenderedListener(canvasOrImg, draw);
 
-            var mpImg = new qq.MegaPixImage(tempImg);
-            mpImg.render(canvasOrImg, {
-                maxWidth: maxSize,
-                maxHeight: maxSize,
-                mime: determineMimeOfFileName(url)
-            });
-        });
+                var mpImg = new qq.MegaPixImage(tempImg);
+                mpImg.render(canvasOrImg, {
+                    maxWidth: maxSize,
+                    maxHeight: maxSize,
+                    mime: determineMimeOfFileName(url)
+                });
+            },
+
+            draw.failure
+        );
     }
 
     function drawOnImgFromUrlWithCssScaling(url, img, draw, maxSize) {
         registerThumbnailRenderedListener(img, draw);
+        // NOTE: The fact that maxWidth/height is set on the thumbnail for scaled images
+        // that must drop back to CSS is known and exploited by the templating module.
+        // In this module, we pre-render "waiting" thumbs for all files immediately after they
+        // are submitted, and we must be sure to pass any style associated with the "waiting" preview.
         qq(img).css({
             maxWidth: maxSize + "px",
             maxHeight: maxSize + "px"
@@ -270,7 +278,6 @@ qq.ImageGenerator = function(log) {
 
         return draw;
     }
-
 
     qq.extend(this, {
         /**

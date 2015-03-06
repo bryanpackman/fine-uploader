@@ -15,6 +15,7 @@ qq.s3.FormUploadHandler = function(options, proxy) {
         getName = proxy.getName,
         getUuid = proxy.getUuid,
         log = proxy.log,
+        onGetBucket = options.getBucket,
         onGetKeyName = options.getKeyName,
         filenameParam = options.filenameParam,
         paramsStore = options.paramsStore,
@@ -32,7 +33,6 @@ qq.s3.FormUploadHandler = function(options, proxy) {
             log: log
         });
 
-
     if (successRedirectUrl === undefined) {
         throw new Error("successRedirectEndpoint MUST be defined if you intend to use browsers that do not support the File API!");
     }
@@ -49,16 +49,18 @@ qq.s3.FormUploadHandler = function(options, proxy) {
     function isValidResponse(id, iframe) {
         var response,
             endpoint = options.endpointStore.get(id),
-            bucket = qq.s3.util.getBucket(endpoint);
-
+            bucket = qq.s3.util.getBucket(endpoint),
+            doc,
+            innerHtml,
+            responseData;
 
         //IE may throw an "access is denied" error when attempting to access contentDocument on the iframe in some cases
         try {
             // iframe.contentWindow.document - for IE<7
-            var doc = iframe.contentDocument || iframe.contentWindow.document,
-                innerHtml = doc.body.innerHTML;
+            doc = iframe.contentDocument || iframe.contentWindow.document;
+            innerHtml = doc.body.innerHTML;
 
-            var responseData = qq.s3.util.parseIframeResponse(iframe);
+            responseData = qq.s3.util.parseIframeResponse(iframe);
             if (responseData.bucket === bucket &&
                 responseData.key === qq.s3.util.encodeQueryStringParam(handler.getThirdPartyFileId(id))) {
 
@@ -68,7 +70,7 @@ qq.s3.FormUploadHandler = function(options, proxy) {
             log("Response from AWS included an unexpected bucket or key name.", "error");
 
         }
-        catch(error) {
+        catch (error) {
             log("Error when attempting to parse form upload response (" + error.message + ")", "error");
         }
 
@@ -82,20 +84,21 @@ qq.s3.FormUploadHandler = function(options, proxy) {
         customParams[filenameParam] = getName(id);
 
         return qq.s3.util.generateAwsParams({
-                endpoint: endpointStore.get(id),
-                params: customParams,
-                key: handler.getThirdPartyFileId(id),
-                accessKey: credentialsProvider.get().accessKey,
-                sessionToken: credentialsProvider.get().sessionToken,
-                acl: aclStore.get(id),
-                minFileSize: validation.minSizeLimit,
-                maxFileSize: validation.maxSizeLimit,
-                successRedirectUrl: successRedirectUrl,
-                reducedRedundancy: reducedRedundancy,
-                serverSideEncryption: serverSideEncryption,
-                log: log
-            },
-            qq.bind(getSignatureAjaxRequester.getSignature, this, id));
+            endpoint: endpointStore.get(id),
+            params: customParams,
+            bucket: handler._getFileState(id).bucket,
+            key: handler.getThirdPartyFileId(id),
+            accessKey: credentialsProvider.get().accessKey,
+            sessionToken: credentialsProvider.get().sessionToken,
+            acl: aclStore.get(id),
+            minFileSize: validation.minSizeLimit,
+            maxFileSize: validation.maxSizeLimit,
+            successRedirectUrl: successRedirectUrl,
+            reducedRedundancy: reducedRedundancy,
+            serverSideEncryption: serverSideEncryption,
+            log: log
+        },
+        qq.bind(getSignatureAjaxRequester.getSignature, this, id));
     }
 
     /**
@@ -178,20 +181,19 @@ qq.s3.FormUploadHandler = function(options, proxy) {
     }
 
     qq.extend(this, new qq.FormUploadHandler({
-            options: {
-                isCors: false,
-                inputName: "file"
-            },
+        options: {
+            isCors: false,
+            inputName: "file"
+        },
 
-            proxy: {
-                onCancel: options.onCancel,
-                onUuidChanged: onUuidChanged,
-                getName: getName,
-                getUuid: getUuid,
-                log: log
-            }
+        proxy: {
+            onCancel: options.onCancel,
+            onUuidChanged: onUuidChanged,
+            getName: getName,
+            getUuid: getUuid,
+            log: log
         }
-    ));
+    }));
 
     qq.extend(this, {
         uploadFile: function(id) {
@@ -199,15 +201,27 @@ qq.s3.FormUploadHandler = function(options, proxy) {
                 promise = new qq.Promise();
 
             if (handler.getThirdPartyFileId(id)) {
-                handleUpload(id).then(promise.success, promise.failure);
+                if (handler._getFileState(id).bucket) {
+                    handleUpload(id).then(promise.success, promise.failure);
+                }
+                else {
+                    onGetBucket(id).then(function(bucket) {
+                        handler._getFileState(id).bucket = bucket;
+                        handleUpload(id).then(promise.success, promise.failure);
+                    });
+                }
             }
             else {
                 // The S3 uploader module will either calculate the key or ask the server for it
                 // and will call us back once it is known.
                 onGetKeyName(id, name).then(function(key) {
-                    handler._setThirdPartyFileId(id, key);
-                    handleUpload(id).then(promise.success, promise.failure);
-
+                    onGetBucket(id).then(function(bucket) {
+                        handler._getFileState(id).bucket = bucket;
+                        handler._setThirdPartyFileId(id, key);
+                        handleUpload(id).then(promise.success, promise.failure);
+                    }, function(errorReason) {
+                        promise.failure({error: errorReason});
+                    });
                 }, function(errorReason) {
                     promise.failure({error: errorReason});
                 });

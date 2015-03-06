@@ -2,17 +2,17 @@
 /**
  * Defines the public API for non-traditional FineUploaderBasic mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.nonTraditionalBasePublicApi = {
         setUploadSuccessParams: function(params, id) {
             this._uploadSuccessParamsStore.set(params, id);
+        },
+        setUploadSuccessEndpoint: function(endpoint, id) {
+            this._uploadSuccessEndpointStore.set(endpoint, id);
         }
     };
-
-
-
 
     qq.nonTraditionalBasePrivateApi = {
         /**
@@ -32,11 +32,12 @@
             var success = result.success ? true : false,
                 self = this,
                 onCompleteArgs = arguments,
-                successEndpoint = this._options.uploadSuccess.endpoint,
+                successEndpoint = this._uploadSuccessEndpointStore.get(id),
                 successCustomHeaders = this._options.uploadSuccess.customHeaders,
                 cors = this._options.cors,
                 promise = new qq.Promise(),
                 uploadSuccessParams = this._uploadSuccessParamsStore.get(id),
+                fileParams = this._paramsStore.get(id),
 
                 // If we are waiting for confirmation from the local server, and have received it,
                 // include properties from the local server response in the `response` parameter
@@ -84,9 +85,11 @@
                     log: qq.bind(this.log, this)
                 });
 
-
                 // combine custom params and default params
                 qq.extend(uploadSuccessParams, self._getEndpointSpecificParams(id, result, xhr), true);
+
+                // include any params associated with the file
+                fileParams && qq.extend(uploadSuccessParams, fileParams, true);
 
                 submitSuccessRequest = qq.bind(function() {
                     successAjaxRequester.sendSuccessRequest(id, uploadSuccessParams)

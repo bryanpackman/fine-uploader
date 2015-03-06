@@ -2,85 +2,103 @@
 /**
  * Defines the public API for FineUploaderBasic mode.
  */
-(function(){
+(function() {
     "use strict";
 
     qq.basePublicApi = {
+        // DEPRECATED - TODO REMOVE IN NEXT MAJOR RELEASE (replaced by addFiles)
         addBlobs: function(blobDataOrArray, params, endpoint) {
-            if (!qq.supportedFeatures.blobUploading) {
-                throw new qq.Error("Blob uploading is not supported in this browser!");
-            }
-
-            this._maybeHandleIos8SafariWorkaround();
-
-            if (blobDataOrArray) {
-                var blobDataArray = [].concat(blobDataOrArray),
-                    verifiedBlobDataList = [],
-                    batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
-                    self = this;
-
-                this._currentBatchId = batchId;
-
-                qq.each(blobDataArray, function(idx, blobData) {
-                    var blobOrBlobData;
-
-                    if (qq.isBlob(blobData) && !qq.isFileOrInput(blobData)) {
-                        blobOrBlobData = {
-                            blob: blobData,
-                            name: self._options.blobs.defaultName
-                        };
-                    }
-                    else if (qq.isObject(blobData) && blobData.blob && blobData.name) {
-                        blobOrBlobData = blobData;
-                    }
-                    else {
-                        self.log("addBlobs: entry at index " + idx + " is not a Blob or a BlobData object", "error");
-                    }
-
-                    blobOrBlobData && self._handleNewFile(blobOrBlobData, batchId, verifiedBlobDataList);
-                });
-
-                this._prepareItemsForUpload(verifiedBlobDataList, params, endpoint);
-            }
-            else {
-                this.log("undefined or non-array parameter passed into addBlobs", "error");
-            }
+            this.addFiles(blobDataOrArray, params, endpoint);
         },
 
-        addFiles: function(filesOrInputs, params, endpoint) {
+        addFiles: function(data, params, endpoint) {
             this._maybeHandleIos8SafariWorkaround();
 
-            var verifiedFilesOrInputs = [],
-                batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
-                fileOrInputIndex, fileOrInput, fileIndex;
+            var batchId = this._storedIds.length === 0 ? qq.getUniqueId() : this._currentBatchId,
+
+                processBlob = qq.bind(function(blob) {
+                    this._handleNewFile({
+                        blob: blob,
+                        name: this._options.blobs.defaultName
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processBlobData = qq.bind(function(blobData) {
+                    this._handleNewFile(blobData, batchId, verifiedFiles);
+                }, this),
+
+                processCanvas = qq.bind(function(canvas) {
+                    var blob = qq.canvasToBlob(canvas);
+
+                    this._handleNewFile({
+                        blob: blob,
+                        name: this._options.blobs.defaultName + ".png"
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processCanvasData = qq.bind(function(canvasData) {
+                    var normalizedQuality = canvasData.quality && canvasData.quality / 100,
+                        blob = qq.canvasToBlob(canvasData.canvas, canvasData.type, normalizedQuality);
+
+                    this._handleNewFile({
+                        blob: blob,
+                        name: canvasData.name
+                    }, batchId, verifiedFiles);
+                }, this),
+
+                processFileOrInput = qq.bind(function(fileOrInput) {
+                    if (qq.isInput(fileOrInput) && qq.supportedFeatures.ajaxUploading) {
+                        var files = Array.prototype.slice.call(fileOrInput.files);
+
+                        qq.each(files, function(idx, file) {
+                            this._handleNewFile(file, batchId, verifiedFiles);
+                        });
+                    }
+                    else {
+                        this._handleNewFile(fileOrInput, batchId, verifiedFiles);
+                    }
+                }, this),
+
+                normalizeData = function() {
+                    if (qq.isFileList(data)) {
+                        data = Array.prototype.slice.call(data);
+                    }
+                    data = [].concat(data);
+                },
+
+                self = this,
+                verifiedFiles = [];
 
             this._currentBatchId = batchId;
 
-            if (filesOrInputs) {
-                if (!qq.isFileList(filesOrInputs)) {
-                    filesOrInputs = [].concat(filesOrInputs);
-                }
+            if (data) {
+                normalizeData();
 
-                for (fileOrInputIndex = 0; fileOrInputIndex < filesOrInputs.length; fileOrInputIndex+=1) {
-                    fileOrInput = filesOrInputs[fileOrInputIndex];
-
-                    if (qq.isFileOrInput(fileOrInput)) {
-                        if (qq.isInput(fileOrInput) && qq.supportedFeatures.ajaxUploading) {
-                            for (fileIndex = 0; fileIndex < fileOrInput.files.length; fileIndex++) {
-                                this._handleNewFile(fileOrInput.files[fileIndex], batchId, verifiedFilesOrInputs);
-                            }
+                qq.each(data, function(idx, fileContainer) {
+                    if (qq.isFileOrInput(fileContainer)) {
+                        processFileOrInput(fileContainer);
+                    }
+                    else if (qq.isBlob(fileContainer)) {
+                        processBlob(fileContainer);
+                    }
+                    else if (qq.isObject(fileContainer)) {
+                        if (fileContainer.blob && fileContainer.name) {
+                            processBlobData(fileContainer);
                         }
-                        else {
-                            this._handleNewFile(fileOrInput, batchId, verifiedFilesOrInputs);
+                        else if (fileContainer.canvas && fileContainer.name) {
+                            processCanvasData(fileContainer);
                         }
+                    }
+                    else if (fileContainer.tagName && fileContainer.tagName.toLowerCase() === "canvas") {
+                        processCanvas(fileContainer);
                     }
                     else {
-                        this.log(fileOrInput + " is not a File or INPUT element!  Ignoring!", "warn");
+                        self.log(fileContainer + " is not a valid file container!  Ignoring!", "warn");
                     }
-                }
+                });
 
-                this.log("Received " + verifiedFilesOrInputs.length + " files or inputs.");
-                this._prepareItemsForUpload(verifiedFilesOrInputs, params, endpoint);
+                this.log("Received " + verifiedFiles.length + " files.");
+                this._prepareItemsForUpload(verifiedFiles, params, endpoint);
             }
         },
 
@@ -100,7 +118,7 @@
             this._handler.cancelAll();
         },
 
-        clearStoredFiles: function(){
+        clearStoredFiles: function() {
             this._storedIds = [];
         },
 
@@ -132,19 +150,20 @@
             return this._handler.isValid(fileOrBlobId);
         },
 
-                // Generate a variable size thumbnail on an img or canvas,
+        // Generate a variable size thumbnail on an img or canvas,
         // returning a promise that is fulfilled when the attempt completes.
         // Thumbnail can either be based off of a URL for an image returned
         // by the server in the upload response, or the associated `Blob`.
         drawThumbnail: function(fileId, imgOrCanvas, maxSize, fromServer) {
-            var promiseToReturn = new qq.Promise();
+            var promiseToReturn = new qq.Promise(),
+                fileOrUrl, options;
 
             if (this._imageGenerator) {
-                var fileOrUrl = this._thumbnailUrls[fileId],
-                    options = {
-                        scale: maxSize > 0,
-                        maxSize: maxSize > 0 ? maxSize : null
-                    };
+                fileOrUrl = this._thumbnailUrls[fileId];
+                options = {
+                    scale: maxSize > 0,
+                    maxSize: maxSize > 0 ? maxSize : null
+                };
 
                 // If client-side preview generation is possible
                 // and we are not specifically looking for the image URl returned by the server...
@@ -177,6 +196,10 @@
 
         getButton: function(fileId) {
             return this._getButton(this._buttonIdsForFileIds[fileId]);
+        },
+
+        getEndpoint: function(fileId) {
+            return this._endpointStore.get(fileId);
         },
 
         getFile: function(fileOrBlobId) {
@@ -224,10 +247,10 @@
         },
 
         getRemainingAllowedItems: function() {
-            var allowedItems = this._options.validation.itemLimit;
+            var allowedItems = this._currentItemLimit;
 
             if (allowedItems > 0) {
-                return this._options.validation.itemLimit - this._netUploadedOrQueued;
+                return allowedItems - this._netUploadedOrQueued;
             }
 
             return null;
@@ -340,6 +363,10 @@
             this._endpointStore.set(endpoint, id);
         },
 
+        setItemLimit: function(newItemLimit) {
+            this._currentItemLimit = newItemLimit;
+        },
+
         setName: function(id, newName) {
             this._uploadData.updateName(id, newName);
         },
@@ -366,9 +393,6 @@
             }
         }
     };
-
-
-
 
     /**
      * Defines the private (internal) API for FineUploaderBasic mode.
@@ -562,7 +586,8 @@
         _createUploadButton: function(spec) {
             var self = this,
                 acceptFiles = spec.accept || this._options.validation.acceptFiles,
-                allowedExtensions = spec.allowedExtensions || this._options.validation.allowedExtensions;
+                allowedExtensions = spec.allowedExtensions || this._options.validation.allowedExtensions,
+                button;
 
             function allowMultiple() {
                 if (qq.supportedFeatures.ajaxUploading) {
@@ -585,7 +610,7 @@
                 return false;
             }
 
-            var button = new qq.UploadButton({
+            button = new qq.UploadButton({
                 element: spec.element,
                 folders: spec.folders,
                 name: this._options.request.inputName,
@@ -645,7 +670,8 @@
                     onComplete: function(id, name, result, xhr) {
                         delete lastOnProgress[id];
 
-                        var status = self.getUploads({id: id}).status;
+                        var status = self.getUploads({id: id}).status,
+                            retVal;
 
                         // This is to deal with some observed cases where the XHR readyStateChange handler is
                         // invoked by the browser multiple times for the same XHR instance with the same state
@@ -655,7 +681,7 @@
                             return;
                         }
 
-                        var retVal = self._onComplete(id, name, result, xhr);
+                        retVal = self._onComplete(id, name, result, xhr);
 
                         // If the internal `_onComplete` handler returns a promise, don't invoke the `onComplete` callback
                         // until the promise has been fulfilled.
@@ -747,7 +773,7 @@
             this._uploadData.setStatus(id, qq.status.REJECTED);
         },
 
-        _formatSize: function(bytes){
+        _formatSize: function(bytes) {
             var i = -1;
             do {
                 bytes = bytes / 1000;
@@ -1007,7 +1033,7 @@
 
             name += "." + extension;
 
-            this.addBlobs({
+            this.addFiles({
                 name: name,
                 blob: blob
             });
@@ -1109,7 +1135,7 @@
                 validationBase = this._getValidationBase(buttonId),
                 extensionsForMessage, placeholderMatch;
 
-            function r(name, replacement){ message = message.replace(name, replacement); }
+            function r(name, replacement) { message = message.replace(name, replacement); }
 
             qq.each(validationBase.allowedExtensions, function(idx, allowedExtension) {
                 /**
@@ -1127,6 +1153,11 @@
             r("{extensions}", extensionsForMessage);
             r("{sizeLimit}", this._formatSize(validationBase.sizeLimit));
             r("{minSizeLimit}", this._formatSize(validationBase.minSizeLimit));
+            // BEHANCE: Support dimensions as template vars
+            r("{minWidth}", this._options.validation.image.minWidth);
+            r("{maxWidth}", this._options.validation.image.maxWidth);
+            r("{minHeight}", this._options.validation.image.minHeight);
+            r("{maxHeight}", this._options.validation.image.maxHeight);
 
             placeholderMatch = message.match(/(\{\w+\})/g);
             if (placeholderMatch !== null) {
@@ -1199,7 +1230,7 @@
         _maybeParseAndSendUploadError: function(id, name, response, xhr) {
             // Assuming no one will actually set the response code to something other than 200
             // and still set 'success' to true...
-            if (!response.success){
+            if (!response.success) {
                 if (xhr && xhr.status !== 200 && !response.error) {
                     this._options.callbacks.onError(id, name, "XHR returned response code " + xhr.status, xhr);
                 }
@@ -1291,20 +1322,21 @@
 
         //return false if we should not attempt the requested retry
         _onBeforeManualRetry: function(id) {
-            var itemLimit = this._options.validation.itemLimit;
+            var itemLimit = this._currentItemLimit,
+                fileName;
 
             if (this._preventRetries[id]) {
                 this.log("Retries are forbidden for id " + id, "warn");
                 return false;
             }
             else if (this._handler.isValid(id)) {
-                var fileName = this.getName(id);
+                fileName = this.getName(id);
 
                 if (this._options.callbacks.onManualRetry(id, fileName) === false) {
                     return false;
                 }
 
-                if (itemLimit > 0 && this._netUploadedOrQueued+1 > itemLimit) {
+                if (itemLimit > 0 && this._netUploadedOrQueued + 1 > itemLimit) {
                     this._itemError("retryFailTooManyItems");
                     return false;
                 }
@@ -1487,7 +1519,7 @@
 
         _onValidateBatchCallbackSuccess: function(validationDescriptors, items, params, endpoint, button) {
             var errorMessage,
-                itemLimit = this._options.validation.itemLimit,
+                itemLimit = this._currentItemLimit,
                 proposedNetFilesUploadedOrQueued = this._netUploadedOrQueued;
 
             if (itemLimit === 0 || proposedNetFilesUploadedOrQueued <= itemLimit) {
@@ -1514,16 +1546,16 @@
         },
 
         _onValidateCallbackFailure: function(items, index, params, endpoint) {
-            var nextIndex = index+ 1;
+            var nextIndex = index + 1;
 
-            this._fileOrBlobRejected(items[0].id, items[0].file.name);
+            this._fileOrBlobRejected(items[index].id, items[index].file.name);
 
             this._maybeProcessNextItemAfterOnValidateCallback(false, items, nextIndex, params, endpoint);
         },
 
         _onValidateCallbackSuccess: function(items, index, params, endpoint) {
             var self = this,
-                nextIndex = index+1,
+                nextIndex = index + 1,
                 validationDescriptor = this._getValidationDescriptor(items[index]);
 
             this._validateFileOrBlobData(items[index], validationDescriptor)
@@ -1557,10 +1589,10 @@
             });
         },
 
-        _preventLeaveInProgress: function(){
+        _preventLeaveInProgress: function() {
             var self = this;
 
-            this._disposeSupport.attach(window, "beforeunload", function(e){
+            this._disposeSupport.attach(window, "beforeunload", function(e) {
                 if (self.getInProgress()) {
                     e = e || window.event;
                     // for ie, ff
@@ -1739,7 +1771,7 @@
         },
 
         _wrapCallbacks: function() {
-            var self, safeCallback;
+            var self, safeCallback, prop;
 
             self = this;
 
@@ -1756,7 +1788,7 @@
             };
 
             /* jshint forin: false, loopfunc: true */
-            for (var prop in this._options.callbacks) {
+            for (prop in this._options.callbacks) {
                 (function() {
                     var callbackName, callbackFunc;
                     callbackName = prop;

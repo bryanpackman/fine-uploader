@@ -58,7 +58,7 @@ if (qqtest.canDownloadFileAsBlob) {
                 expectedStatusChangeOrder = [qq.status.SUBMITTING, qq.status.SUBMITTED];
 
             qqtest.downloadFileAsBlob(testImgKey, testImgType).then(function(blob) {
-                uploader.addBlobs({blob: blob, name: expectedName});
+                uploader.addFiles({blob: blob, name: expectedName});
 
                 assert.deepEqual(callbackOrder, expectedCallbackOrder);
                 assert.deepEqual(statusChangeOrder, expectedStatusChangeOrder);
@@ -89,11 +89,43 @@ if (qqtest.canDownloadFileAsBlob) {
             qqtest.downloadFileAsBlob(testImgKey, testImgType).then(function(blob) {
                 blob.foo = "bar";
 
-                uploader.addBlobs([
+                uploader.addFiles([
                     {blob: blob, name: "name1"},
                     {blob: blob, name: "name2"}
                 ]);
                 done();
+            });
+        });
+
+        it("handles a file rejected via onValidate callback", function(done) {
+            var filesValidated = 0,
+                uploader = new qq.FineUploaderBasic({
+                    validation: {
+                        stopOnFirstInvalidFile: false
+                    },
+                    callbacks: {
+                        onAllComplete: function(succeeded, failed) {
+                            assert.equal(succeeded.length, 0, "wrong succeeded count");
+                            assert.equal(failed.length, 1, "wrong failed count");
+                            assert.equal(uploader.getUploads({id: 0}).status, qq.status.UPLOAD_FAILED);
+                            assert.equal(uploader.getUploads({id: 1}).status, qq.status.REJECTED);
+                            done();
+                        },
+                        onValidate: function(blobData, button) {
+                            filesValidated++;
+
+                            if (filesValidated === 2) {
+                                return false;
+                            }
+                        }
+                    }
+                });
+
+            qqtest.downloadFileAsBlob(testImgKey, testImgType).then(function(blob) {
+                uploader.addFiles([
+                    {blob: blob, name: "name1"},
+                    {blob: blob, name: "name2"}
+                ]);
             });
         });
 
@@ -142,7 +174,7 @@ if (qqtest.canDownloadFileAsBlob) {
                     }())
                 });
 
-                uploader.addBlobs(blob);
+                uploader.addFiles(blob);
 
                 return uploader;
             }
@@ -233,7 +265,7 @@ if (qqtest.canDownloadFileAsBlob) {
                             blobs.push(blob);
                         }
 
-                        uploader.addBlobs(blobs);
+                        uploader.addFiles(blobs);
                     });
                 });
             }
@@ -350,7 +382,7 @@ if (qqtest.canDownloadFileAsBlob) {
 
                     qqtest.downloadFileAsBlob(testImgKey, testImgType).then(function(blob1) {
                         qqtest.downloadFileAsBlob("down.jpg", "image/jpeg").then(function(blob2) {
-                            uploader.addBlobs([blob1, blob2, blob1]);
+                            uploader.addFiles([blob1, blob2, blob1]);
                         });
                     });
                 }
@@ -403,7 +435,7 @@ if (qqtest.canDownloadFileAsBlob) {
             );
 
                 qqtest.downloadFileAsBlob(testImgKey, testImgType).then(function(blob) {
-                    uploader.addBlobs([blob, blob]);
+                    uploader.addFiles([blob, blob]);
                 });
             }
 

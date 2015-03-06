@@ -68,6 +68,7 @@ alert("The `chunking.paramNames` option does **not** apply to S3.")
 {{ api_parent_option("objectProperties", "objectProperties", "",
     (
         ("objectProperties.acl", "acl", "This value corresponds to a [canned ACL](http://docs.aws.amazon.com/AmazonS3/latest/dev/ACLOverview.html#CannedACL)", "String", "private",),
+        ("objectProperties.bucket", "bucket", "Describes the name of the bucket used to house the file in S3.  This is required if the bucket cannot be determined by examining the endpoint (such as if you are using a CDN as an endpoint).  Possible values are a string representing the bucket name, or a function.  If the value is a function, Fine Uploader S3 will pass the associated file ID as a parameter when invoking your function. If the value is a function it may return one of a promise or a `String`.", "String or Function", "(assumes the bucket can be determined by parsing the endpoint string)",),
         ("objectProperties.key", "key", "Describes the object key used to identify the file in your S3 bucket. Possible values are 'uuid', 'filename' or a function.  If the value is a function, Fine Uploader S3 will pass the associated file ID as a parameter when invoking your function. If the value is a function it may return one of a promise or a `String`.", "String or Function", "uuid",),
         ("objectProperties.reducedRedundancy", "reducedRedundancy", "Set this to true if you would like to use the reduced redundancy storage class for all objects uploaded to S3.", "Boolean", "false",),
         ("objectProperties.serverSideEncryption", "serverSideEncryption", "Set this to true if you would like all uploaded files to be encrypted by AWS.", "Boolean", "false",),
@@ -84,7 +85,7 @@ alert("`request.customHeaders` does **not** apply to S3.")
 {{ api_parent_option("request", "request", "",
     (
         ("request.accessKey", "accessKey", "Your AWS public key. **NOT YOUR SECRET KEY**. Ignored if `credentials` have been set.", "String", "null",),
-        ("request.endpoint", "endpoint", "URL for your S3 bucket.  All valid bucket URLs documented by Amazon are supported, including custom domains.  SSL is also supported.", "String", "null",),
+        ("request.endpoint", "endpoint", "URL for your S3 bucket or the URL of a CDN that forwards the request to S3.  All valid bucket URLs documented by Amazon are supported, including custom domains.  SSL is also supported.  If you use a CDN address, be sure to specify the bucket via the `objectProperties.bucket` option.", "String", "null",),
         ("request.params", "params", "Parameters passed along with each upload request.", "Object", "{}",),
         ("request.filenameParam", "filenameParam", "Part of the parameter name that contains the name of the associated file which may differ from the key name. Prefixed with 'x-amz-meta-' by Fine Uploader.", "String", "qqfilename",),
     )
@@ -92,7 +93,7 @@ alert("`request.customHeaders` does **not** apply to S3.")
 
 {{ api_parent_option("signature", "signature", "",
     (
-        ("signature.customHeaders", "customHeaders", "Additional headers sent along with each signature request.", "Object", "{}",),
+        ("signature.customHeaders", "customHeaders", "Additional headers sent along with each signature request.  If you declare a function as the value, the associated file's ID will be passed to your function when it is invoked.", "Object, Function", "{}",),
         ("signature.endpoint", "endpoint", "The endpoint that Fine Uploader can use to send policy documents (HTML form uploads) or other strings to sign (REST requests) before sending requests off to S3.", "String", "null",),
     )
 )}}
