@@ -9,6 +9,15 @@
     "mocha": "~1.11.0",
     "assert": "https://github.com/Jxck/assert.git"
   },
+  "ignore": [
+    "/*.*",
+    "client",
+    "docs",
+    "gradle",
+    "lib",
+    "test",
+    "WEB-INF"
+  ],
   "exportsOverride": {
     "mocha": {
       "js": "mocha.js",
