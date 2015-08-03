@@ -12531,9 +12531,12 @@ qq.s3.RequestSigner = function(o) {
                 },
 
                 getToSign: function() {
-                    var sessionToken = credentialsProvider.get().sessionToken;
+                    var sessionToken = credentialsProvider.get().sessionToken,
+                        // BEHANCE: add clock drift detection
+                        drift = options.signatureSpec.params && options.signatureSpec.params.drift ? options.signatureSpec.params.drift : 0;
 
-                    headers["x-amz-date"] = new Date().toUTCString();
+                    // BEHANCE: account for clock drift
+                    headers["x-amz-date"] = new Date(Date.now() + drift).toUTCString();
 
                     if (sessionToken) {
                         headers[qq.s3.util.SESSION_TOKEN_PARAM_NAME] = sessionToken;
@@ -16102,7 +16105,7 @@ code.google.com/p/crypto-js/wiki/License
     C.HmacSHA1 = Hasher._createHmacHelper(SHA1);
 }());
 
-/*! 2015-05-20 */
+/*! 2015-08-03 */
 
 return qq;
 
