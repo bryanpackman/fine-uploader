@@ -160,9 +160,10 @@ qq.s3.XhrUploadHandler = function(spec, proxy) {
                             uploadIdPromise.success(uploadId);
                             promise.success(uploadId);
                         },
-                        function(errorMsg) {
+                        // BEHANCE: add xhr to this failure callback
+                        function(errorMsg, xhr) {
                             handler._getPersistableData(id).uploadId = null;
-                            promise.failure(errorMsg);
+                            promise.failure(errorMsg, xhr);
                             uploadIdPromise.failure(errorMsg);
                         }
                     );
