@@ -86,7 +86,8 @@ qq.s3.RequestSigner = function(o) {
                 options.log(errorMessage, "error");
             }
 
-            promise.failure(errorMessage);
+            // BEHANCE: add xhrOrXdr to the failure
+            promise.failure(errorMessage, xhrOrXdr);
         }
         else {
             promise.success(response);
