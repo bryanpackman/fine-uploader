@@ -1,4 +1,6 @@
-## Updating FineUploader
+## @behance/fine-uploader
+
+### Updating FineUploader
 
 Behance maintains our own version of the FineUploader repo that contains built files so that it can be used as a proper bower dependency. In order to update to the latest FineUploader, or to generate a new build, perform the following steps:
 
